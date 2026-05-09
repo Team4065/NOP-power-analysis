@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# FRC — raw competition telemetry logs are large and stay local
+data/seasons/*/raw/*
+!data/seasons/*/raw/.gitkeep

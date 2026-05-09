@@ -1,0 +1,30 @@
+[project]
+name = "frc-4065-power-analysis"
+version = "0.1.0"
+description = "FRC Team 4065 Power Analysis Tool"
+authors = [{name = "FRC Team 4065"}]
+requires-python = ">=3.10"
+dependencies = [
+    "pandas",
+    "numpy",
+    "matplotlib",
+    "plotly",
+    "streamlit",
+    "scipy",
+]
+
+[project.scripts]
+frc-power = "power_analysis.cli:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
