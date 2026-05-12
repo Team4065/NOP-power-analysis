@@ -58,7 +58,7 @@ class PowerModel:
         The result is in Joules; divide by 3600 to convert to Wh.
         """
         power = self.compute_instantaneous_power()
-        joules = np.trapz(power.values, x=self.df.index)
+        joules = np.trapezoid(power.values, x=self.df.index)
         return joules / 3600
 
     def peak_power(self) -> float:
