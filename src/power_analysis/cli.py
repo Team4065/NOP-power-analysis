@@ -37,7 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    args = build_parser().parse_args()
+    args = build_parser().parse_args()  # noqa: F841
 
     # TODO: Import TelemetryParser and load args.input
     # TODO: Run PowerModel, BatteryModel, and BrownoutDetector

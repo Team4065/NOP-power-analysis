@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from power_analysis import config
+from power_analysis import config  # noqa: F401
 
 
 class TelemetryParser:

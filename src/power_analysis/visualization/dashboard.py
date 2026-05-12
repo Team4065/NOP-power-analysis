@@ -6,11 +6,11 @@ Launch with:
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path  # noqa: F401
 
 import streamlit as st
 
-from power_analysis import config
+from power_analysis import config  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Page config — must be the first Streamlit call

@@ -8,10 +8,10 @@ Key physics:
 
 from __future__ import annotations
 
-import numpy as np
+import numpy as np  # noqa: F401
 import pandas as pd
 
-from power_analysis import config
+from power_analysis import config  # noqa: F401
 
 
 class PowerModel:

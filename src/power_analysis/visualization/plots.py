@@ -9,7 +9,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from power_analysis import config
+from power_analysis import config  # noqa: F401
 
 
 def plot_voltage(df: pd.DataFrame) -> plt.Figure:
