@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from power_analysis import config  # noqa: F401
+from power_analysis import config
 
 
 class TelemetryParser:
@@ -40,12 +40,12 @@ class TelemetryParser:
         ValueError
             If any required columns are missing from the file.
         """
-        # TODO: Raise FileNotFoundError if self.filepath does not exist
-        # TODO: Load the CSV with pd.read_csv
-        # TODO: Call self._validate_columns(df) to check required columns
-        # TODO: Convert the timestamp column to float and set it as the index
-        # TODO: Return the cleaned DataFrame
-        raise NotImplementedError("Implement TelemetryParser.load()")
+        if not self.filepath.exists():
+            raise FileNotFoundError(f"Telemetry file not found: {self.filepath}")
+        df = pd.read_csv(self.filepath)
+        self._validate_columns(df)
+        df[config.TIMESTAMP_COL] = df[config.TIMESTAMP_COL].astype(float)
+        return df.set_index(config.TIMESTAMP_COL, drop=False)
 
     def _validate_columns(self, df: pd.DataFrame) -> None:
         """Raise ValueError listing any missing required columns.
@@ -55,7 +55,6 @@ class TelemetryParser:
         df : pd.DataFrame
             The freshly loaded DataFrame to validate.
         """
-        # TODO: Get the list of required columns from config.REQUIRED_COLS
-        # TODO: Find any columns that are in REQUIRED_COLS but NOT in df.columns
-        # TODO: If any are missing, raise ValueError with a helpful message listing them
-        raise NotImplementedError("Implement TelemetryParser._validate_columns()")
+        missing = [col for col in config.REQUIRED_COLS if col not in df.columns]
+        if missing:
+            raise ValueError(f"Missing required columns: {missing}")

@@ -8,10 +8,10 @@ Key physics:
 
 from __future__ import annotations
 
-import numpy as np  # noqa: F401
+import numpy as np
 import pandas as pd
 
-from power_analysis import config  # noqa: F401
+from power_analysis import config
 
 
 class PowerModel:
@@ -44,9 +44,7 @@ class PowerModel:
 
         Hint: Power = Voltage × Current — multiply the two columns.
         """
-        # TODO: Multiply config.VOLTAGE_COL by config.CURRENT_COL
-        # TODO: Return the result as a pd.Series with the same index as self.df
-        raise NotImplementedError("Implement PowerModel.compute_instantaneous_power()")
+        return self.df[config.VOLTAGE_COL] * self.df[config.CURRENT_COL]
 
     def compute_energy(self) -> float:
         """Return total energy consumed over the match in Watt-hours.
@@ -59,11 +57,9 @@ class PowerModel:
         Hint: Use np.trapz(power_values, x=timestamps) to integrate.
         The result is in Joules; divide by 3600 to convert to Wh.
         """
-        # TODO: Call self.compute_instantaneous_power() to get power values
-        # TODO: Get the timestamp index (self.df.index) as the x-axis
-        # TODO: Integrate with np.trapz
-        # TODO: Convert from Joules to Watt-hours and return
-        raise NotImplementedError("Implement PowerModel.compute_energy()")
+        power = self.compute_instantaneous_power()
+        joules = np.trapz(power.values, x=self.df.index)
+        return joules / 3600
 
     def peak_power(self) -> float:
         """Return the maximum instantaneous power draw in Watts.
@@ -73,8 +69,7 @@ class PowerModel:
         float
             Peak power (W).
         """
-        # TODO: Use compute_instantaneous_power() then find the max
-        raise NotImplementedError("Implement PowerModel.peak_power()")
+        return float(self.compute_instantaneous_power().max())
 
     def average_power(self) -> float:
         """Return the mean power draw over enabled periods in Watts.
@@ -86,7 +81,6 @@ class PowerModel:
 
         Hint: Filter self.df to rows where config.ENABLED_COL is True before averaging.
         """
-        # TODO: Filter to enabled rows
-        # TODO: Compute power on the filtered DataFrame
-        # TODO: Return the mean
-        raise NotImplementedError("Implement PowerModel.average_power()")
+        enabled_df = self.df[self.df[config.ENABLED_COL]]
+        power = enabled_df[config.VOLTAGE_COL] * enabled_df[config.CURRENT_COL]
+        return float(power.mean())
