@@ -220,3 +220,4 @@ __marimo__/
 # FRC — raw competition telemetry logs are large and stay local
 data/seasons/*/raw/*
 !data/seasons/*/raw/.gitkeep
+data/raw/*
