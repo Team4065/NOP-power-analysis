@@ -1,69 +1,169 @@
 # Telemetry Schema
 
-This document is the canonical reference for FRC Team 4065 telemetry CSV files.
-All sample data, parsers, and tests are based on this schema.
+Real championship log format for FRC Team 4065 (2026 season).
 
 ---
 
-## File Naming Convention
+## File format
 
-```
-<year>_<event>_<match_type><match_num>.csv
-```
+Logs are produced by **AdvantageKit** and stored as `.wpilog` (binary) with a paired `.csv` (text).
 
-Examples:
-- `2026_worlds_qm42.csv` — 2026 Worlds, Qualification Match 42
-- `2026_sample_match_1.csv` — synthetic sample for development
+### wpilog
 
----
+Binary WPILib DataLog format. Must be converted to CSV using `robotpy-wpiutil` before analysis.
+Naming: `akit_<YY-MM-DD>_<HH-MM-SS>_<event>[_suffix].wpilog`
 
-## Column Definitions
+### AKit CSV
 
-| Column | Type | Unit | Description |
-|--------|------|------|-------------|
-| `timestamp` | float | seconds | Elapsed time since match start (wall-clock source: roboRIO) |
-| `match_time` | float | seconds | Official DS match timer (counts down from 150 in teleop, 15 in auto) |
-| `robot_enabled` | bool | — | `True` when robot is enabled by the Driver Station |
-| `autonomous` | bool | — | `True` during the autonomous period |
-| `voltage_battery` | float | V | Battery terminal voltage measured by PDH |
-| `current_total` | float | A | Total current draw from battery (sum of all PDH channels) |
-| `current_ch00` | float | A | PDH channel 0 current (drivetrain left front motor) |
-| `current_ch01` | float | A | PDH channel 1 current (drivetrain left rear motor) |
-| `current_ch02` | float | A | PDH channel 2 current (drivetrain right front motor) |
-| `current_ch03` | float | A | PDH channel 3 current (drivetrain right rear motor) |
-| `current_ch04` | float | A | PDH channel 4 current (shooter top motor) |
-| `current_ch05` | float | A | PDH channel 5 current (shooter bottom motor) |
-| `current_ch06` | float | A | PDH channel 6 current (intake motor) |
-| `current_ch07` | float | A | PDH channel 7 current (climber motor) |
-| `subsystem_drive` | string | — | Drivetrain state: `"idle"`, `"teleop"`, `"auto"` |
-| `subsystem_shooter` | string | — | Shooter state: `"idle"`, `"spinup"`, `"firing"` |
-| `subsystem_intake` | string | — | Intake state: `"idle"`, `"intaking"`, `"ejecting"` |
-| `subsystem_climber` | string | — | Climber state: `"idle"`, `"deploying"`, `"climbing"` |
+Sparse time series — each signal appears in a row **only when its value changed** since the last row. All other cells are `null` or empty. **Always apply forward-fill (`ffill`) before analysis.**
 
-### Notes
+First column is always `Timestamp` (robot clock, seconds). Remaining columns are AKit signal paths with forward-slash separators.
 
-- Logging rate: ~50 Hz (one row every ~0.02 s)
-- `current_total` may differ slightly from the sum of channel currents due to PDH overhead and VREG loads
-- Battery voltage below **6.8 V** triggers roboRIO brownout (motors disabled)
-- During `robot_enabled = False` (disabled periods), most channel currents drop to near zero
+Event suffixes:
+- `_daly` — Daly division (practice/qualification rounds)
+- `_cmptx` — Championship finals/playoffs
+- `_e{N}` suffix on some cmptx files — elimination match number
 
 ---
 
-## Derived Quantities (computed, not logged)
+## Signal reference
 
-These are calculated by the analysis modules — not present in raw CSV files.
+### Timestamp
 
-| Quantity | Formula | Unit |
-|----------|---------|------|
-| Instantaneous power | `voltage_battery × current_total` | W |
-| Energy consumed | `∫ power dt` (trapezoidal) | Wh |
-| Internal resistance | slope of `V = V_oc − I × R` | Ω |
+| Column | Type | Unit | Notes |
+|---|---|---|---|
+| `Timestamp` | float | s | Robot clock from boot. Not match-relative. Derive elapsed time from match start. |
+
+### Battery and power
+
+| Signal path | Type | Unit | Status | Notes |
+|---|---|---|---|---|
+| `/SystemStats/BatteryVoltage` | float | V | **Use this** | 12V terminal voltage at roboRIO. Real data. |
+| `/SystemStats/BrownedOut` | bool string | — | **Use this** | `"True"` when voltage drops below brownout threshold. |
+| `/SystemStats/BrownoutVoltage` | float | V | Read at startup | Configured threshold = **6.0V** (not WPILib default 6.8V). |
+| `/SystemStats/BatteryCurrent` | float | A | Do not use for total | roboRIO input current only (~0.4A). Not main battery current. |
+| `/PowerDistribution/Voltage` | float | V | **Always 0** | Old PDH has no CAN bus. Ignore. |
+| `/PowerDistribution/TotalCurrent` | float | A | **Always 0** | Same reason. Ignore. |
+| `/PowerDistribution/TotalPower` | float | W | **Always 0** | Same. Ignore. |
+| `/PowerDistribution/TotalEnergy` | float | J | **Always 0** | Same. Ignore. |
+| `/PowerDistribution/ChannelCurrent` | float[] | A | **Always 0** | 24-element comma-separated array. All zeros. Ignore. |
+
+### Driver Station / match state
+
+| Signal path | Type | Notes |
+|---|---|---|
+| `/DriverStation/Enabled` | bool string | `"True"` / `"False"` — robot enabled flag |
+| `/DriverStation/Autonomous` | bool string | `"True"` during auto period |
+| `/DriverStation/MatchTime` | float | Countdown timer (s). ~20 at auto start, ~140 at teleop start, -1 outside match |
+| `/DriverStation/MatchType` | int | 0=None, 1=Practice, 2=Qualification, 3=Elimination |
+| `/DriverStation/MatchNumber` | int | Match number within type |
+| `/DriverStation/DSAttached` | bool string | Driver station connected |
+
+### Motor currents — Drive (swerve, 4 modules)
+
+| Signal path | Type | Unit | Notes |
+|---|---|---|---|
+| `/Drive/Module0/DriveCurrentAmps` | float | A | Front-left drive motor |
+| `/Drive/Module0/TurnCurrentAmps` | float | A | Front-left steer motor |
+| `/Drive/Module1/DriveCurrentAmps` | float | A | Front-right drive motor |
+| `/Drive/Module1/TurnCurrentAmps` | float | A | Front-right steer motor |
+| `/Drive/Module2/DriveCurrentAmps` | float | A | Rear-left drive motor |
+| `/Drive/Module2/TurnCurrentAmps` | float | A | Rear-left steer motor |
+| `/Drive/Module3/DriveCurrentAmps` | float | A | Rear-right drive motor |
+| `/Drive/Module3/TurnCurrentAmps` | float | A | Rear-right steer motor |
+
+### Motor currents — Shooter
+
+| Signal path | Type | Unit | Notes |
+|---|---|---|---|
+| `/Shooter/TopRollerMotorCurrentAmps` | float | A | Top flywheel roller |
+| `/Shooter/BottomRollerMotorCurrentAmps` | float | A | Bottom flywheel roller |
+| `/Shooter/AngleMotorCurrentAmps` | float | A | Shooter pivot angle |
+
+### Motor currents — Hopper
+
+| Signal path | Type | Unit | Notes |
+|---|---|---|---|
+| `/Hopper/AgitatorCurrentAmps` | float | A | Note agitator |
+| `/Hopper/IndexerCurrentAmps` | float | A | Note indexer |
+| `/Hopper/ShooterFeedingRollerCurrentAmps` | float | A | Feed roller to shooter |
+
+### Motor currents — Intake
+
+| Signal path | Type | Unit | Notes |
+|---|---|---|---|
+| `/Intake/IntakeRollerCurrentAmps` | float | A | Ground intake roller |
+| `/Intake/IntakePivotCurrentAmps` | float | A | Intake deploy pivot |
+
+### Motor currents — Climber
+
+| Signal path | Type | Unit | Notes |
+|---|---|---|---|
+| `/Climber/LiftMotorCurrentAmps` | float | A | Climber lift motor |
 
 ---
 
-## Example Row (header + 1 data row)
+## Subsystem current groupings
+
+| Group name | Signals (count) | Typical peak (A) |
+|---|---|---|
+| `drive` | Module0–3 Drive + Turn (8) | 60–100A (full sprint) |
+| `shooter` | TopRoller, BottomRoller, AngleMotor (3) | 30–40A (spin-up) |
+| `hopper` | Agitator, Indexer, FeedingRoller (3) | 5–15A |
+| `intake` | IntakeRoller, IntakePivot (2) | 5–20A |
+| `climber` | LiftMotor (1) | 10–30A |
+
+---
+
+## Derived quantities (computed by analysis modules)
+
+| Quantity | Formula | Units |
+|---|---|---|
+| Total current | Σ all motor currents | A |
+| Instantaneous power | `/SystemStats/BatteryVoltage` × total current | W |
+| Match energy | ∫ power dt (trapezoidal) over match window | Wh |
+| Subsystem energy | ∫ (V × subsystem current sum) dt | Wh |
+
+---
+
+## Match period detection
 
 ```
-timestamp,match_time,robot_enabled,autonomous,voltage_battery,current_total,current_ch00,current_ch01,current_ch02,current_ch03,current_ch04,current_ch05,current_ch06,current_ch07,subsystem_drive,subsystem_shooter,subsystem_intake,subsystem_climber
-0.00,15.00,True,True,12.45,18.3,4.1,3.9,4.0,4.2,0.5,0.5,1.1,0.0,auto,idle,idle,idle
+Signal: /DriverStation/Enabled, /DriverStation/Autonomous, /DriverStation/MatchTime
+
+Autonomous:  Enabled=True,  Autonomous=True,  MatchTime > 0   (~20s → 0)
+Gap:         Enabled=False, Autonomous=True,  MatchTime = 0   (~4–5s between periods)
+Teleop:      Enabled=True,  Autonomous=False, MatchTime > 0   (~140s → 0)
+Endgame:     Enabled=True,  Autonomous=False, MatchTime ≤ 30  (subset of teleop)
+Post-match:  Enabled=False, MatchTime = 0
 ```
+
+Elapsed time axis: seconds from the first auto-enabled row (t = 0 at auto start).
+
+---
+
+## Observed match example — cmptx_e4 (Elimination Match 4)
+
+| Event | Robot ts | MatchTime | BatteryVoltage |
+|---|---|---|---|
+| Auto start (Enabled) | 234.9s | 20.0 | 12.82V |
+| Auto end (Disabled) | 255.1s | 0.0 | 11.69V |
+| Teleop start (Enabled) | 259.3s | 140.0 | 12.77V |
+| Match end (Disabled) | 399.9s | 0.0 | 12.13V |
+
+Total match duration: ~165s of robot clock (150s of actual match + ~15s gap/overhead).
+
+---
+
+## Legacy flat-schema CSV (synthetic test data only)
+
+The files in `data/sample/` use an older synthetic flat-schema format, not from real logs:
+
+```
+timestamp, match_time, robot_enabled, autonomous,
+voltage_battery, current_total,
+current_ch00 … current_ch07,
+subsystem_drive, subsystem_shooter, subsystem_intake, subsystem_climber
+```
+
+Used only for testing the legacy `TelemetryParser` class. Do not confuse with real AKit data.

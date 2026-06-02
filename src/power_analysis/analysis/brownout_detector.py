@@ -1,9 +1,14 @@
 """Detect and characterize voltage brownout events.
 
-FRC robots experience a brownout when the battery terminal voltage drops below
-6.8 V — the roboRIO automatically disables motor outputs to protect electronics.
-Brownouts are typically caused by high instantaneous current draw exceeding the
-battery's ability to maintain voltage (i.e., high I * R_internal drop).
+FRC robots experience a brownout when battery terminal voltage drops below the
+configured threshold — the roboRIO automatically disables motor outputs to
+protect electronics. Team 4065 configures this threshold at 6.0 V (not the
+WPILib default of 6.8 V). Brownouts are typically caused by high instantaneous
+current draw exceeding the battery's ability to maintain voltage (I × R_internal).
+
+For AKit logs, prefer using the /SystemStats/BrownedOut boolean signal directly
+(available as the normalized ``browned_out`` column) rather than applying
+threshold math to battery voltage.
 """
 
 from __future__ import annotations
@@ -22,7 +27,7 @@ class BrownoutDetector:
         Telemetry data as returned by ``TelemetryParser.load()``.
     threshold : float
         Voltage (V) below which a brownout is declared.
-        Defaults to ``config.BROWNOUT_THRESHOLD`` (6.8 V).
+        Defaults to ``config.BROWNOUT_THRESHOLD`` (6.0 V for Team 4065).
 
     Example
     -------
