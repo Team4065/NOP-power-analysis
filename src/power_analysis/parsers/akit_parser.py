@@ -15,7 +15,6 @@ so downstream analysis modules never reference raw AKit signal strings.
 
 from __future__ import annotations
 
-import platform
 from pathlib import Path
 
 import numpy as np

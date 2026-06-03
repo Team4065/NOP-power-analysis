@@ -6,9 +6,10 @@ protect electronics. Team 4065 configures this threshold at 6.0 V (not the
 WPILib default of 6.8 V). Brownouts are typically caused by high instantaneous
 current draw exceeding the battery's ability to maintain voltage (I × R_internal).
 
-For AKit logs, prefer using the /SystemStats/BrownedOut boolean signal directly
-(available as the normalized ``browned_out`` column) rather than applying
-threshold math to battery voltage.
+For AKit logs, the preferred detection path uses the /SystemStats/BrownedOut
+boolean signal directly (available as the normalized ``browned_out`` column).
+When that column is absent (legacy data), the detector falls back to thresholding
+the voltage column.
 """
 
 from __future__ import annotations
@@ -19,14 +20,16 @@ from power_analysis import config
 
 
 class BrownoutDetector:
-    """Find brownout events in telemetry data.
+    """Find brownout events in a normalized telemetry DataFrame.
 
     Parameters
     ----------
     df : pd.DataFrame
-        Telemetry data as returned by ``TelemetryParser.load()``.
+        Normalized telemetry data. Must contain a time column and either a
+        ``browned_out`` boolean column (preferred) or a voltage column
+        (``voltage_12v`` or ``voltage_battery``) for threshold fallback.
     threshold : float
-        Voltage (V) below which a brownout is declared.
+        Voltage (V) below which a brownout is declared in fallback mode.
         Defaults to ``config.BROWNOUT_THRESHOLD`` (6.0 V for Team 4065).
 
     Example
@@ -43,6 +46,9 @@ class BrownoutDetector:
     ) -> None:
         self.df = df
         self.threshold = threshold
+        self._time_col = self._resolve_time_col(df)
+        self._voltage_col = self._resolve_voltage_col(df)
+        self._use_signal = config.BROWNED_OUT_OUT_COL in df.columns
 
     def detect(self) -> pd.DataFrame:
         """Find all brownout events and return their statistics.
@@ -52,31 +58,76 @@ class BrownoutDetector:
         pd.DataFrame
             One row per brownout event with columns:
             ``start_time``, ``end_time``, ``duration_s``, ``min_voltage``.
-
-        Hint
-        ----
-        1. Create a boolean Series: ``below = df[VOLTAGE_COL] < self.threshold``.
-        2. Use ``(below != below.shift()).cumsum()`` to assign a group ID to each
-           contiguous block of rows.
-        3. Keep only groups where ``below`` is True.
-        4. For each surviving group, record:
-           - start_time  = first timestamp index value in the group
-           - end_time    = last timestamp index value in the group
-           - duration_s  = end_time - start_time
-           - min_voltage = minimum voltage in the group
+            Empty DataFrame (with those columns) if no events occurred.
         """
-        # TODO: Build the boolean mask for below-threshold voltage
-        # TODO: Label contiguous regions with a group ID
-        # TODO: Iterate (or groupby) over brownout regions
-        # TODO: Collect stats into a list of dicts and return as a DataFrame
-        raise NotImplementedError("Implement BrownoutDetector.detect()")
+        below = self._brownout_mask()
+
+        events = []
+        if below.any():
+            # Assign a group id to each contiguous run of equal mask values,
+            # then keep only the runs where the mask is True.
+            group_id = (below != below.shift()).cumsum()
+            for _, group in self.df[below].groupby(group_id[below]):
+                start_time = float(group[self._time_col].iloc[0])
+                end_time = float(group[self._time_col].iloc[-1])
+                min_voltage = (
+                    float(group[self._voltage_col].min())
+                    if self._voltage_col is not None
+                    else float("nan")
+                )
+                events.append({
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "duration_s": end_time - start_time,
+                    "min_voltage": min_voltage,
+                })
+
+        return pd.DataFrame(
+            events,
+            columns=["start_time", "end_time", "duration_s", "min_voltage"],
+        )
 
     def brownout_count(self) -> int:
-        """Return the total number of brownout events in the match.
+        """Return the total number of brownout events in the match."""
+        return len(self.detect())
 
-        Returns
-        -------
-        int
-        """
-        # TODO: Call self.detect() and return the number of rows
-        raise NotImplementedError("Implement BrownoutDetector.brownout_count()")
+    def total_brownout_duration(self) -> float:
+        """Return the summed duration (seconds) of all brownout events."""
+        events = self.detect()
+        if events.empty:
+            return 0.0
+        return float(events["duration_s"].sum())
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _brownout_mask(self) -> pd.Series:
+        """Boolean Series — True where the robot is in brownout."""
+        if self._use_signal:
+            return self.df[config.BROWNED_OUT_OUT_COL].astype(bool)
+        if self._voltage_col is not None:
+            return self.df[self._voltage_col] < self.threshold
+        raise ValueError(
+            "DataFrame has neither a 'browned_out' column nor a voltage column "
+            "for brownout detection."
+        )
+
+    @staticmethod
+    def _resolve_time_col(df: pd.DataFrame) -> str:
+        """Return the name of the time column, or the index as a fallback."""
+        if config.ELAPSED_COL in df.columns:
+            return config.ELAPSED_COL
+        if config.TIMESTAMP_COL in df.columns:
+            return config.TIMESTAMP_COL
+        # Legacy index-based time: expose the index as a column reference
+        return df.index.name or "index"
+
+    @staticmethod
+    def _resolve_voltage_col(df: pd.DataFrame) -> str | None:
+        """Return the name of the voltage column, or None if absent."""
+        if config.VOLTAGE_12V_COL in df.columns:
+            return config.VOLTAGE_12V_COL
+        if config.VOLTAGE_COL in df.columns:
+            return config.VOLTAGE_COL
+        return None
