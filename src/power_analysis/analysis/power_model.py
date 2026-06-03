@@ -144,6 +144,31 @@ class PowerModel:
         breakdown = self.subsystem_energy_breakdown()
         return sorted(breakdown.items(), key=lambda kv: kv[1], reverse=True)
 
+    def subsystem_peak_current(self) -> dict[str, float]:
+        """Return the peak current (A) drawn by each subsystem group.
+
+        Returns
+        -------
+        dict[str, float]
+            Mapping of subsystem name → maximum current (A) over the match.
+
+        Raises
+        ------
+        AttributeError
+            If called on a legacy (non-AKit) DataFrame.
+        """
+        if not self._akit:
+            raise AttributeError(
+                "subsystem_peak_current() requires an AKit DataFrame."
+            )
+        peaks: dict[str, float] = {}
+        for subsystem in config.AKIT_MOTOR_CURRENT_COLS:
+            col = f"current_{subsystem}"
+            peaks[subsystem] = (
+                float(self.df[col].max()) if col in self.df.columns else 0.0
+            )
+        return peaks
+
     # ------------------------------------------------------------------
     # Voltage amplitude
     # ------------------------------------------------------------------
