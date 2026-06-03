@@ -21,51 +21,55 @@ pip install -e .
 
 ## Command-Line Interface
 
-Analyze a single telemetry file and print a summary report:
+Point the tool at a directory of AdvantageKit logs. It discovers every log
+(converting any unpaired `.wpilog` to `.csv`), analyzes each match, prints a
+ranked summary, and saves plots.
 
 ```bash
-frc-power --input data/sample/2026_sample_match_1.csv --report
+frc-power --log-dir data/sample
 ```
 
 Or using the module directly (no install required):
 
 ```bash
-python -m power_analysis.cli --input data/sample/2026_sample_match_1.csv --report
+python -m power_analysis.cli --log-dir data/sample
 ```
 
 ### Options
 
 | Flag | Description |
 |------|-------------|
-| `--input`, `-i` | Path to telemetry CSV (required) |
-| `--season`, `-s` | Competition season year (default: 2026) |
-| `--report` | Print a summary power report to stdout |
+| `--log-dir`, `-l` | **Required.** Directory of `.wpilog` / `.csv` logs. |
+| `--match-type`, `-t` | Filter sessions: `all` (default), `practice`, `qual`, `elim`. |
+| `--match-number`, `-n` | Filter to a specific match number. |
+| `--output-dir`, `-o` | Where to save plot PNGs (default: `./reports`). |
+| `--no-plots` | Print summaries only; skip plot generation. |
 
----
-
-## Streamlit Dashboard
-
-Launch the interactive visualizer:
+The committed sample in `data/sample/` is a real elimination match — try it both
+ways:
 
 ```bash
-streamlit run src/power_analysis/visualization/dashboard.py
-```
+# Analyze the pre-converted CSV directly:
+frc-power --log-dir data/sample
 
-Open http://localhost:8501 in your browser. Use the sidebar to upload a CSV
-or select a sample file, then explore the power metrics and charts.
+# Or delete the CSV and let the tool convert the wpilog for you:
+rm data/sample/akit_cmptx_e4_sample.csv
+frc-power --log-dir data/sample
+```
 
 ---
 
 ## Python API
 
 ```python
-from power_analysis.parsers.telemetry_parser import TelemetryParser
+from pathlib import Path
+
+from power_analysis.parsers.akit_parser import AKitParser
 from power_analysis.analysis.power_model import PowerModel
-from power_analysis.analysis.battery_model import BatteryModel
 from power_analysis.analysis.brownout_detector import BrownoutDetector
 
-# 1. Load data
-df = TelemetryParser("data/sample/2026_sample_match_1.csv").load()
+# 1. Load and normalize one match
+df = AKitParser(Path("data/sample/akit_cmptx_e4_sample.csv")).load()
 
 # 2. Power metrics
 model = PowerModel(df)
@@ -73,15 +77,26 @@ print(f"Peak power:    {model.peak_power():.1f} W")
 print(f"Average power: {model.average_power():.1f} W")
 print(f"Total energy:  {model.compute_energy():.3f} Wh")
 
-# 3. Battery health
-batt = BatteryModel(df)
-print(f"R_internal: {batt.estimate_internal_resistance():.4f} Ω")
+# 3. Subsystem ranking
+for name, wh in model.rank_by_energy():
+    print(f"  {name:<10} {wh:.3f} Wh")
 
-# 4. Brownout events
+# 4. Voltage and brownouts
+vs = model.voltage_stats()
+print(f"Voltage: min {vs.min_v:.2f}V  max {vs.max_v:.2f}V  drop {vs.drop_v:.2f}V")
 detector = BrownoutDetector(df)
-events = detector.detect()
-print(f"{detector.brownout_count()} brownout event(s) detected")
-print(events)
+print(f"{detector.brownout_count()} brownout event(s)")
+```
+
+For AdvantageKit log discovery and wpilog conversion, use `AKitIngester`:
+
+```python
+from power_analysis.parsers.akit_ingester import AKitIngester
+
+ingester = AKitIngester(Path("data/sample"))
+ingester.convert_all()            # wpilog -> csv for any unconverted files
+for log in ingester.discover():   # list[LogFile]
+    print(log.session_label, log.path)
 ```
 
 ---
@@ -91,17 +106,15 @@ print(events)
 ```bash
 pytest              # run all tests
 pytest -v           # verbose output
-pytest tests/test_power_model.py   # single file
+pytest tests/test_cli.py   # single file
 ```
-
-Tests for unimplemented functions will raise `NotImplementedError`.
-A passing test confirms a correct implementation.
 
 ---
 
 ## Adding Real Match Data
 
-1. Export your match log from WPILib DataLog Tool or AdvantageScope as CSV.
-2. Verify column names match [telemetry_schema.md](telemetry_schema.md).
-3. Place the file in `data/seasons/<year>/raw/` — it will not be committed to git.
-4. Pass the path to `TelemetryParser` or the CLI `--input` flag.
+1. Copy your `.wpilog` files (and/or AdvantageScope-exported `.csv` files) into a
+   directory.
+2. Run `frc-power --log-dir <that directory>`. Unpaired `.wpilog` files are
+   converted automatically.
+3. Large raw logs belong in `data/seasons/<year>/raw/` — that path is git-ignored.

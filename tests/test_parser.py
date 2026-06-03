@@ -1,8 +1,10 @@
-"""Tests for TelemetryParser.
+"""Tests for the legacy flat-schema TelemetryParser.
 
-These tests will raise NotImplementedError until students implement the parser.
-Run with: pytest tests/test_parser.py
+These build their own flat-schema CSV in a temp directory, so the parser is
+covered without relying on any committed sample data.
 """
+
+from __future__ import annotations
 
 from pathlib import Path
 
@@ -11,20 +13,30 @@ import pytest
 from power_analysis import config
 from power_analysis.parsers.telemetry_parser import TelemetryParser
 
-SAMPLE_CSV = config.SAMPLE_DIR / "2026_sample_match_1.csv"
+_HEADER = "timestamp,match_time,robot_enabled,autonomous,voltage_battery,current_total"
+_ROWS = "\n".join(
+    f"{i * 0.02:.2f},{15 - i * 0.02:.2f},True,True,12.4,{10.0 + i}"
+    for i in range(12)
+)
 
 
-def test_load_returns_dataframe():
+@pytest.fixture
+def flat_csv(tmp_path: Path) -> Path:
+    """A minimal valid legacy flat-schema telemetry CSV."""
+    path = tmp_path / "flat_match.csv"
+    path.write_text(_HEADER + "\n" + _ROWS + "\n")
+    return path
+
+
+def test_load_returns_dataframe(flat_csv):
     """load() should return a DataFrame with timestamp as the index."""
-    parser = TelemetryParser(SAMPLE_CSV)
-    df = parser.load()
+    df = TelemetryParser(flat_csv).load()
     assert df.index.name == config.TIMESTAMP_COL
 
 
-def test_load_has_required_columns():
+def test_load_has_required_columns(flat_csv):
     """Loaded DataFrame must contain all required columns."""
-    parser = TelemetryParser(SAMPLE_CSV)
-    df = parser.load()
+    df = TelemetryParser(flat_csv).load()
     for col in config.REQUIRED_COLS:
         assert col in df.columns, f"Missing column: {col}"
 
@@ -39,7 +51,7 @@ def test_load_file_not_found():
 def test_load_missing_column(tmp_path: Path):
     """load() should raise ValueError when a required column is absent."""
     bad_csv = tmp_path / "bad.csv"
-    # Write a CSV that is missing the voltage column
+    # Missing the voltage column.
     bad_csv.write_text("timestamp,robot_enabled,current_total\n0.0,True,5.0\n")
     parser = TelemetryParser(bad_csv)
     with pytest.raises(ValueError):

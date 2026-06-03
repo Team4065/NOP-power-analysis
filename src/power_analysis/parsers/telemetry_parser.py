@@ -13,11 +13,14 @@ from power_analysis import config
 
 
 class TelemetryParser:
-    """Load and validate an FRC telemetry CSV file.
+    """Load and validate a legacy flat-schema FRC telemetry CSV file.
+
+    For AdvantageKit logs, use ``AKitParser`` instead. This parser remains for
+    teams that export telemetry in the older flat CSV schema.
 
     Example
     -------
-    >>> parser = TelemetryParser("data/sample/2026_sample_match_1.csv")
+    >>> parser = TelemetryParser("match.csv")
     >>> df = parser.load()
     >>> df.head()
     """

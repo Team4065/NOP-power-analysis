@@ -6,9 +6,7 @@
 data/
 ├── sample/          # Sample data for development, testing, and tool review
 │   ├── akit_cmptx_e4_sample.wpilog   # real elimination match (trimmed) — see below
-│   ├── akit_cmptx_e4_sample.csv      # the same match, converted by this tool
-│   ├── 2026_sample_match_1.csv       # legacy synthetic flat-schema data
-│   └── 2026_sample_match_2.csv       # legacy synthetic flat-schema data
+│   └── akit_cmptx_e4_sample.csv      # the same match, converted by this tool
 │
 └── seasons/
     ├── 2026/
@@ -44,9 +42,7 @@ frc-power --log-dir data/sample
 ```
 
 The sample was generated with [`scripts/make_sample.py`](../scripts/make_sample.py)
-(documented there for reproducibility). The legacy `2026_sample_match_*.csv` files
-use the older synthetic flat schema and exist only to exercise the legacy
-`TelemetryParser`.
+(documented there for reproducibility).
 
 ## Telemetry Schema
 
