@@ -222,6 +222,9 @@ data/seasons/*/raw/*
 !data/seasons/*/raw/.gitkeep
 data/raw/*
 
+# macOS metadata
+.DS_Store
+
 # Generated reports — only explicitly force-added examples are tracked
 reports/*
 !reports/elimination-4_current_by_subsystem.png
