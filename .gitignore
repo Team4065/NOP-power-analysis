@@ -221,3 +221,10 @@ __marimo__/
 data/seasons/*/raw/*
 !data/seasons/*/raw/.gitkeep
 data/raw/*
+
+# Generated reports — only explicitly force-added examples are tracked
+reports/*
+!reports/elimination-4_current_by_subsystem.png
+!reports/elimination-4_energy_rank.png
+!reports/elimination-4_total_current.png
+!reports/elimination-4_voltage.png
