@@ -13,7 +13,7 @@ Before writing any code in this repo, pin and read these six files:
 
 ## Critical data facts
 
-- **Real logs live outside this repo**: `../championship_logs/` (sibling directory)
+- **Real logs live outside this repo**: `../championship_logs/` (sibling directory, ~1.8 GB, git-ignored — back up separately when changing machines; see [docs/STARTUP.md](docs/STARTUP.md))
 - **Format**: AdvantageKit sparse CSV — values only appear in rows where they changed; `null` elsewhere; always forward-fill
 - **PDH data is always zero**: old PDH hardware has no CAN bus — `/PowerDistribution/*` signals are useless
 - **12V voltage source**: `/SystemStats/BatteryVoltage` (real data, 12.8V idle → ~11V under load)

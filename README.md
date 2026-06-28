@@ -18,6 +18,11 @@ Telemetry-based power analysis platform built from Team 4065's
 
 ## Installation
 
+> Setting this up on a brand-new machine, or migrating off one? See
+> [docs/STARTUP.md](docs/STARTUP.md) — it covers environment setup and, critically,
+> the ~1.8 GB of real championship logs that live **outside** the repo and must be
+> backed up separately.
+
 ### 1. Clone the repo
 
 ```
@@ -144,6 +149,7 @@ invariants.
 | [docs/architecture.md](docs/architecture.md) | Module structure and design decisions |
 | [docs/GLOSSARY.md](docs/GLOSSARY.md) | FRC / AKit term definitions |
 | [docs/TESTING.md](docs/TESTING.md) | Test strategy and invariants |
+| [docs/STARTUP.md](docs/STARTUP.md) | New-machine setup and migration checklist |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Guide for student contributors |
 
 ---
